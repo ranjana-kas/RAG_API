@@ -1,6 +1,5 @@
 
 
-```markdown
 # 🤖 Conversational RAG Assistant
 
 A  Retrieval-Augmented Generation (RAG) system built using **FastAPI + Streamlit + FAISS + Sentence Transformers + Gemini**.
@@ -38,39 +37,6 @@ Upload a document and chat with it intelligently using semantic search and conve
 - Prompt sent to Gemini
 - Answer returned to frontend
 
----
-
-## 📂 Project Structure
-
-```
-
-mini_rag_api/
-│
-├── main.py
-├── frontend.py
-│
-├── schemas/
-│   ├── ingest.py
-│   └── query.py
-│
-├── services/
-│   ├── chunker.py
-│   ├── embedding_service.py
-│   ├── retrieval_service.py
-│   └── llm_service.py
-│
-├── storage/
-│   ├── faiss_store.py
-│   └── conversation_store.py
-│
-├── utils/
-│   ├── file_parser.py
-│   └── text_cleaner.py
-│
-├── .env
-└── README.md
-
----
 
 ## 🛠️ Installation
 
