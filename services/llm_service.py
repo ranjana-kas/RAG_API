@@ -3,6 +3,7 @@ from google import genai
 from typing import List, AsyncGenerator
 import json
 from dotenv import load_dotenv
+import asyncio
 
 load_dotenv()
 
@@ -46,36 +47,57 @@ Answer:
 
 async def generate_answer_sync(query: str, context_chunks: List[str], history: List[dict]) -> str:
     if query in query_cache:
+        logger.info("Cache hit")
         return query_cache[query]
 
     client = get_client()
     prompt = build_prompt(query, context_chunks, history)
 
-    response = await client.aio.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-    )
+    max_retries = 3
+    delay = 2
 
-    query_cache[query] = response.text
-    return response.text
+    for attempt in range(max_retries):
+        try:
+            response = await client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
 
+            query_cache[query] = response.text
+            return response.text
 
-async def generate_answer_stream(query: str, context_chunks: List[str]) -> AsyncGenerator[str, None]:
+        except Exception as e:
+            logger.error(f"Gemini error: {e}")
+
+            if attempt == max_retries - 1:
+                return "⚠️ LLM busy or quota exceeded. Try again later."
+
+            await asyncio.sleep(delay)
+            delay *= 2  
+
+async def generate_answer_stream(query: str, context_chunks: List[str], history: List[dict]) -> AsyncGenerator[str, None]:
     if query in query_cache:
         yield f"data: {json.dumps({'text': query_cache[query]})}\n\n"
         return
 
     client = get_client()
     prompt = build_prompt(query, context_chunks, history)
-    response_stream = await client.aio.models.generate_content_stream(
-        model="gemini-2.5-flash",
-        contents=prompt,
-    )
 
-    full_response = ""
-    async for chunk in response_stream:
-        if chunk.text:
-            full_response += chunk.text
-            yield f"data: {json.dumps({'text': chunk.text})}\n\n"
+    try:
+        response_stream = await client.aio.models.generate_content_stream(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
 
-    query_cache[query] = full_response
+        full_response = ""
+
+        async for chunk in response_stream:
+            if chunk.text:
+                full_response += chunk.text
+                yield f"data: {json.dumps({'text': chunk.text})}\n\n"
+
+        query_cache[query] = full_response
+
+    except Exception as e:
+        logger.error(f"Streaming error: {e}")
+        yield f"data: {json.dumps({'text': '⚠️ LLM busy. Try again.'})}\n\n"
